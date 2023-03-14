@@ -38,7 +38,7 @@ class FdAlloc {
     fd = mkstemp(filename);
     fchmod(fd, 0700);
 #else
-    output_fd_ = memfd_create("output.vmfb", 0);
+    fd = memfd_create("output.vmfb", 0);
 #endif
   }
 
