@@ -5,8 +5,6 @@
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 """Adds a local dependency on xla."""
 
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
-
 local_repository(
     name = "xla",
     path = "external/xla",
