@@ -53,9 +53,9 @@ def sync_nightly():
   sync_iree_runtime_submodules(iree_path)
   jax_path = checkout_repo("jax", "https://github.com/google/jax.git")
   xla_commit = probe_jax_xla_commit(jax_path)
-  log(f"Jax is synced to tensorflow commit {xla_commit}")
+  log(f"Jax is synced to xla commit {xla_commit}")
   xla_path = checkout_repo("xla",
-                          "https://github.com/xla/xla.git",
+                          "https://github.com/openxla/xla.git",
                           commit=xla_commit)
   write_env(iree_compiler_dylib=dylib_path)
 
@@ -161,7 +161,7 @@ def probe_jax_xla_commit(jax_path) -> str:
       "https://github.com/openxla/xla/archive/([0-9a-f]+).tar.gz",
       contents):
     return m[1]
-  raise ValueError(f"Unable to find tensorflow commit hash in {jax_path}")
+  raise ValueError(f"Unable to find xla commit hash in {jax_path}")
 
 
 def sync_iree_runtime_submodules(iree_path: Path):

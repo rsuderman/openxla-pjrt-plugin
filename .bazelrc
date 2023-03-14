@@ -7,10 +7,6 @@
 import %workspace%/build_tools/bazel/iree_pjrt.bazelrc
 import %workspace%/env.bazelrc
 
-# Required by OpenXLA
-# https://github.com/openxla/xla/issues/1323
-build --nocheck_visibility
-
 # Import the main IREE bazel configuration.
 import %workspace%/external/iree/build_tools/bazel/iree.bazelrc
 try-import %workspace%/external/iree/configured.bazelrc
