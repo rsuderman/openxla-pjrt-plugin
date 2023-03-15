@@ -1508,11 +1508,12 @@ iree_status_t LoadedExecutableInstance::BatchExecute(
     // a subset of devices may fail.
     if (!iree_status_is_ok(new_status)) {
       status = new_status;
-      iree_hal_device_queue_barrier(
+      // We can ignore the error as we are already erroring out earlier.
+      IREE_IGNORE_ERROR(iree_hal_device_queue_barrier(
         inv.res_exe->device_instance->device(),
         IREE_HAL_QUEUE_AFFINITY_ANY,
         iree_hal_fence_semaphore_list(inv.wait_fence.get()),
-        iree_hal_fence_semaphore_list(inv.signal_fence.get()));
+        iree_hal_fence_semaphore_list(inv.signal_fence.get())));
     }
   }
 
