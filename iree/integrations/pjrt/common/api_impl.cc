@@ -742,15 +742,13 @@ iree_status_t DeviceInstance::HostBufferToDevice(
 
   // We only need a staging buffer if we cannot splat the data.
   iree::vm::ref<iree_hal_buffer_t> host_staging_buffer;
-  if (!is_splat) {
-    IREE_RETURN_IF_ERROR(AcquireHostStagingBuffer(
-        iree_make_const_byte_span(data, byte_length), require_snapshot_now,
-        &caller_data_done, &host_staging_buffer));
-    if (!caller_data_done) {
-      return iree_make_status(
-          IREE_STATUS_UNIMPLEMENTED,
-          "Deferred snapshot of host data not yet implemented");
-    }
+  IREE_RETURN_IF_ERROR(AcquireHostStagingBuffer(
+      iree_make_const_byte_span(data, byte_length), require_snapshot_now,
+      &caller_data_done, &host_staging_buffer));
+  if (!caller_data_done) {
+    return iree_make_status(
+        IREE_STATUS_UNIMPLEMENTED,
+        "deferred snapshot of host data not yet implemented");
   }
 
   // Allocate on stream. We serialize across 3 timepoints:
@@ -780,13 +778,15 @@ iree_status_t DeviceInstance::HostBufferToDevice(
   // Queue up the transfer command.
   iree::vm::ref<iree_hal_command_buffer_t> transfer_cb;
   if (is_splat) {
-    IREE_RETURN_IF_ERROR(iree_hal_create_transfer_command_buffer(
+    IREE_RETURN_IF_ERROR(iree_hal_command_buffer_create(
         device(), IREE_HAL_COMMAND_BUFFER_MODE_ONE_SHOT,
-        IREE_HAL_QUEUE_AFFINITY_ANY,
-        /*transfer_count=*/0, nullptr, &transfer_cb));
+        IREE_HAL_COMMAND_CATEGORY_ANY, IREE_HAL_QUEUE_AFFINITY_ANY,
+        /*binding_capacity=*/0, &transfer_cb));
+    IREE_CHECK_OK(iree_hal_command_buffer_begin(transfer_cb.get()));
     IREE_RETURN_IF_ERROR(iree_hal_command_buffer_fill_buffer(
         transfer_cb.get(), buffer.get(), /*target_offset=*/0,
         /*target_size=*/byte_length, data, element_type_byte_size));
+    IREE_CHECK_OK(iree_hal_command_buffer_end(transfer_cb.get()));
   } else if (!has_zero_length) {
     iree_hal_transfer_command_t transfer_command;
     memset(&transfer_command, 0, sizeof(transfer_command));
