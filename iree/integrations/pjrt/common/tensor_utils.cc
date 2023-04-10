@@ -31,7 +31,8 @@ void computeBroadcastArgs(int64_t ndims, int64_t element_size,
 
   // Populate any unary dimensions to map to their dimension.
   std::vector<int64_t> reverse_perms;
-  reverse_perms.resize(ndims, -1);
+  constexpr int64_t kempty = -1;
+  reverse_perms.resize(ndims, kempty);
   for (int i = 0; i < ndims; ++i) {
     if (output_strides[i] == 0 || output_shape[i] == 1) {
       reverse_perms[i] = i;
@@ -41,7 +42,7 @@ void computeBroadcastArgs(int64_t ndims, int64_t element_size,
   // Populate the reordered dimensions.
   int idx = 0;
   for (int i = 0; i < ndims; i++) {
-    if (reverse_perms[i] == -1) {
+    if (reverse_perms[i] == kempty) {
       reverse_perms[i] = perms[idx];
       idx++;
     }
