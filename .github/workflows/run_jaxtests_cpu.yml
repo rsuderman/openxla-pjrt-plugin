@@ -27,7 +27,7 @@ concurrency:
 # Jobs are organized into groups and topologically sorted by dependencies
 jobs:
   build:
-    runs-on: ubuntu-20.04-64core
+    runs-on: ubuntu-20.04
     steps:
       - name: Get current date
         id: date
