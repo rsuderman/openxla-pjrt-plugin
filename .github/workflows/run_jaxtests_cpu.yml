@@ -1,0 +1,69 @@
+# Installs prebuilt binaries and runs jax testsuite
+
+name: Run CPU Jax Testsuite
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Do the nightly dep roll at 2:30 PDT.
+    - cron:  '30 21 * * *'
+
+env:
+  # This duplicates the variable from ci.yml. The variable needs to be in env
+  # instead of the outputs of setup because it contains the run attempt and we
+  # want that to be the current attempt, not whatever attempt the setup step
+  # last ran in. It therefore can't be passed in via inputs because the env
+  # context isn't available there.
+  GCS_DIR: gs://iree-github-actions-jax-testsuite-artifacts/
+
+
+concurrency:
+  # A PR number if a pull request and otherwise the commit hash. This cancels
+  # queued and in-progress runs for the same PR (presubmit) or commit
+  # (postsubmit).
+  group: run_jax_testsuite_${{ github.event.number || github.sha }}
+  cancel-in-progress: true
+
+# Jobs are organized into groups and topologically sorted by dependencies
+jobs:
+  build:
+    runs-on: ubuntu-20.04-64core
+    steps:
+      - name: Get current date
+        id: date
+        # Sets up: ${{ steps.date.outputs.date }}
+        run: echo "::set-output name=date::$(date +'%Y-%m-%d')"
+
+      - name: "Checking out repository"
+        uses: actions/checkout@e2f20e631ae6d7dd3b768f56a5d2af784dd54791 # v2.5.0
+
+      - name: "Setting up Python"
+        uses: actions/setup-python@75f3110429a8c05be0e1bf360334e4cced2b63fa # v2.3.3
+        with:
+          python-version: "3.10"
+
+      - name: Sync and install versions
+        run: |
+          # TODO: https://github.com/openxla/openxla-pjrt-plugin/issues/30
+          sudo apt install -y lld
+          # Since only building the runtime, exclude compiler deps (expensive).
+          python ./sync_deps.py --depth 1 --submodules-depth 1 --exclude-submodule "iree:third_party/(llvm|mlir-hlo)"
+          pip install -r requirements.txt
+
+      - name: Setup Bazelisk
+        uses: bazelbuild/setup-bazelisk@v2
+
+      - name: "Configure"
+        run: |
+          python ./configure.py --cc=clang --cxx=clang++
+
+      - name: "Build CPU Plugin"
+        run: |
+          bazel build //iree/integrations/pjrt/cpu:pjrt_plugin_iree_cpu.so
+
+      - name: "Run JAX Testsuite"
+        run: |
+          source .env.sh
+          JAX_PLATFORMS=iree_cpu python test/test_jax.py external/jax/tests/nn_test.py \
+            --passing jaxsuite_passing.txt \
+            --failing jaxsuite_failing.txt
