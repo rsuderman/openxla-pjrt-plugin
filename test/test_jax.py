@@ -5,6 +5,7 @@
 import argparse
 import multiprocessing
 import os
+import random
 import re
 import subprocess
 import sys
@@ -27,14 +28,18 @@ PYTEST_CMD = [
 ]
 
 
+def get_test(test):
+  print("Fetching from:", test)
+  stdout = subprocess.run(PYTEST_CMD + ["--setup-only", test],
+                          capture_output=True)
+  lst = re.findall('::[^ ]*::[^ ]*', str(stdout))
+  return [test + func for func in lst]
+
 def get_tests(tests):
   fulltestlist = []
-  for test in sorted(tests):
-    print("Fetching from:", test)
-    stdout = subprocess.run(PYTEST_CMD + ["--setup-only", test],
-                            capture_output=True)
-    testlist = re.findall('::[^ ]*::[^ ]*', str(stdout))
-    fulltestlist += [test + func for func in testlist]
+  with multiprocessing.Pool(int(args.jobs) if args.jobs else args.jobs) as p:
+    fulltestlist = p.map(get_test, tests)
+  fulltestlist = sorted([i for lst in fulltestlist for i in lst])
   return fulltestlist
 
 
@@ -61,6 +66,7 @@ def exec_test(command):
 
 def exec_testsuite(commands):
   returncodes = []
+  random.shuffle(commands)
   with multiprocessing.Pool(int(args.jobs) if args.jobs else args.jobs) as p:
     returncodes = p.map(exec_test, commands)
     print("")
