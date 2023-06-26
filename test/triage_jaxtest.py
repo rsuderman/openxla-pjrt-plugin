@@ -80,8 +80,12 @@ def check_timeout(errortxt, _, __):
   return "jaxlib.xla_extension.XlaRuntimeError: ABORTED: ABORTED" in errortxt
 
 
-def check_rng_bit(errortxt, _, __):
-  return "stablehlo.rng_bit_generator" in errortxt
+def check_rng_bit_i8(_, mlirbc, __):
+  lines = mlirbc.split("\n")
+  for line in lines:
+    if "stablehlo.rng_bit_generator" in line and "i8" in line:
+      return True
+  return False
 
 
 def check_min_max_f16(errortxt, _, __):
@@ -129,12 +133,6 @@ def check_fft(_, mlirbc, __):
 def check_index_constant(errortxt, _, __):
   return re.search(
       "'vm.trunc.i64.i32' op operand #[0-9]* must be 64-bit signless integer, but got 'index'",
-      errortxt)
-
-
-def check_index_cast(errortxt, _, __):
-  return re.search(
-      "'arith.index_cast' op operand type 'i[0-9]*' and result type 'i[0-9]*' are cast incompatible",
       errortxt)
 
 
@@ -259,12 +257,10 @@ KnownChecks = {
         check_fft,
     "https://github.com/openxla/iree/issues/14072 (complex convolution)":
         check_complex_convolution,
-    "https://github.com/openxla/iree/issues/14090 (index cast)":
-        check_index_cast,
     "https://github.com/openxla/iree/issues/10816 (cholesky)":
         check_cholesky,
-    "https://github.com/openxla/iree/issues/11761 (rng bit gen)":
-        check_rng_bit,
+    "https://github.com/openxla/iree/issues/11761 (rng bit gen i8)":
+        check_rng_bit_i8,
     "https://github.com/openxla/iree/issues/????? (eigen decomp)":
         check_eigen_decomposition,
     "https://github.com/openxla/iree/issues/13579 (scatter ui)":
