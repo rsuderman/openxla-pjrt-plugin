@@ -57,10 +57,6 @@ def check_collective(errortxt, _, __):
   return "stablehlo.collective" in errortxt or "UNIMPLEMENTED; collectives not implemented" in errortxt
 
 
-def check_optimization_barrier(errortxt, _, __):
-  return "util.optimization_barrier" in errortxt
-
-
 def check_sort_shape(errortxt, _, __):
   return "'iree_linalg_ext.sort' op expected operand 1 to have same shape as other operands" in errortxt
 
@@ -89,6 +85,8 @@ def check_rng_bit_i8(_, mlirbc, __):
 
 
 def check_min_max_f16(errortxt, _, __):
+  if "undefined symbol: fminf" in errortxt:
+    return True
   lines = errortxt.split("\n")
   for line in lines:
     has_fmax = "llvm.intr.vector.reduce.fmax" in line
@@ -128,12 +126,6 @@ def check_cholesky(errortxt, _, __):
 
 def check_fft(_, mlirbc, __):
   return "stablehlo.fft" in mlirbc
-
-
-def check_index_constant(errortxt, _, __):
-  return re.search(
-      "'vm.trunc.i64.i32' op operand #[0-9]* must be 64-bit signless integer, but got 'index'",
-      errortxt)
 
 
 def check_schedule_allocation(errortxt, _, __):
@@ -193,10 +185,6 @@ def check_optimized_prgrm(errortxt, _, __):
   return "UNIMPLEMENTED; PJRT_Executable_OptimizedProgram" in errortxt
 
 
-def check_transpose_transfer(errortxt, _, __):
-  return "UNIMPLEMENTED; only dense, row-major layouts currently supported" in errortxt
-
-
 def check_optimized_program(errortxt, _, __):
   return "UNIMPLEMENTED; PJRT_Executable_OptimizedProgram" in errortxt
 
@@ -213,7 +201,10 @@ def check_python_callback(errortxt, _, __):
   return "ValueError: `EmitPythonCallback` not supported" in errortxt
 
 
-def check_complex_convolution(_, mlirbc, __):
+def check_complex_convolution(errortxt, mlirbc, __):
+  if "failed to legalize operation 'complex.constant'" in errortxt:
+    return True
+
   for line in mlirbc.split("\n"):
     has_i1 = re.search("tensor<([0-9]*x)*complex<f[0-9]*>>", line)
     has_conv = re.search("stablehlo.convolution", line)
@@ -223,36 +214,125 @@ def check_complex_convolution(_, mlirbc, __):
   return False
 
 
-def check_unsigned_topk(_, mlirbc, __):
-  for line in mlirbc.split("\n"):
-    has_topk = re.search("chlo.topk", line)
-    unsigned = re.search(": tensor<[0-9]*xui[0-9]* ->", line)
-    if has_topk and unsigned:
-      return True
-  return False
+def check_subspan(errortxt, _, __):
+  return "failed to legalize operation 'hal.interface.binding.subspan' that was explicitly marked illegal" in errortxt
+
+
+def check_from_tensor(errortxt, _, __):
+  return "error: 'tensor.from_elements' op unhandled tensor operation" in errortxt
 
 
 def check_unknown_backend(errortxt, _, __):
   return "RuntimeError: Unknown backend" in errortxt
 
 
+def check_unsigned_topk(_, mlirbc, __):
+  for line in mlirbc.split("\n"):
+    if "xui" in line and "chlo.top_k" in line:
+      return True
+  return False
+
+
 def check_runtime_crash(__, _, runtime_crash):
   return runtime_crash
 
 
+def check_aborted(errortxt, _, __):
+  return "ABORTED" in errortxt
+
+
+def check_bounds_indexing(errortxt, _, __):
+  return "out-of-bounds indexing for array of shape" in errortxt
+
+
+def check_nan_correctness(errortxt, _, __):
+  return "nan location mismatch" in errortxt
+
+
+def check_pointer_mismatch(errortxt, _, __):
+  return "unsafe_buffer_pointer()" in errortxt
+
+
+def check_select_and_scatter(errortxt, _, __):
+  return "failed to legalize operation 'stablehlo.select_and_scatter'" in errortxt
+
+
+def check_degenerate_scatter(errortxt, _, __):
+  return "'iree_linalg_ext.scatter' op operand #2 must be ranked tensor or memref of any type values" in errortxt
+
+
+def check_cost_analysis(errortxt, _, __):
+  return "cost_analysis()" in errortxt
+
+
+def check_invalid_option(errortxt, _, __):
+  return "No such compile option: 'invalid_key'" in errortxt
+
+
+def check_inf_mismatch(errortxt, _, __):
+  return "inf location mismatch" in errortxt
+
+
+def check_shape_assertion(errortxt, _, __):
+  for line in errortxt.split("\n"):
+    if "assertEqual" in line and ".shape" in line:
+      return True
+  return False
+
+
+def check_vector_contract(errortxt, _, __):
+  return "'vector.contract' op failed to verify that lhs and rhs have same element type" in errortxt
+
+
+def check_subbyte_read(errortxt, _, __):
+  return "opaque and sub-byte aligned element types cannot be indexed" in errortxt
+
+
+def check_buffer_usage(errortxt, _, __):
+  return "requested buffer usage is not supported" in errortxt or "tensor requested usage was not specified when the buffer" in errortxt or "PERMISSION_DENIED; requested usage was not specified when the buffer was allocated; buffer allows DISPATCH_INDIRECT_PARAMS" in errortxt
+
+
+def check_subbyte_singleton(errortxt, _, __):
+  return "does not have integral number of total bytes" in errortxt
+
+
+def check_max_arg(errortxt, _, __):
+  return "max() arg is an empty sequence" in errortxt
+
+
+def check_double_support(errortxt, _, __):
+  return "expected f32 (21000020) but have f64 (21000040)" in errortxt
+
+
+def check_stablehlo_degenerate(_, mlirbc, __):
+  for line in mlirbc.split("\n"):
+    if "stablehlo" in line and ("x0x" in line or "<0x" in line):
+      return True
+  return False
+
+
+def check_stablehlo_allreduce(errortxt, _, __):
+  return "failed to legalize operation 'stablehlo.all_reduce'" in errortxt
+
+
+def check_dot_shape(errortxt, _, __):
+  for line in errortxt.split("\n"):
+    if "error: inferred shape" in line and "is incompatible with return type of operation " in line:
+      return True
+  return False
+
+
 KnownChecks = {
+    "https://github.com/openxla/iree/issues/14255 (detensoring)":
+        check_from_tensor,
     "https://github.com/openxla/iree/issues/????? (unknown)":
         check_jax_unimplemented,
-    "https://github.com/openxla/iree/issues/12408 (transpose mem)":
-        check_transpose_transfer,
     "https://github.com/openxla/iree/issues/13726 (collective)":
         check_collective,
     "https://github.com/openxla/iree/issues/12410 (custom call)":
         check_custom_call,
     "https://github.com/openxla/iree/issues/11018 (triangle)":
         check_triangular_solve,
-    "https://github.com/openxla/iree/issues/14077 (index constant)":
-        check_index_constant,
     "https://github.com/openxla/iree/issues/12263 (fft)":
         check_fft,
     "https://github.com/openxla/iree/issues/14072 (complex convolution)":
@@ -267,8 +347,6 @@ KnownChecks = {
         check_scatter_ui,
     "https://github.com/openxla/iree/issues/13725 (cross repl)":
         check_cross_replica,
-    "https://github.com/openxla/iree/issues/13727 (optbarrier)":
-        check_optimization_barrier,
     "https://github.com/openxla/iree/issues/13493 (dot i1)":
         check_dot_i1,
     "https://github.com/openxla/iree/issues/13522 (roundeven)":
@@ -287,12 +365,52 @@ KnownChecks = {
         check_donation,
     "https://github.com/openxla/iree/issues/????? (python callback)":
         check_python_callback,
+    "https://github.com/openxla/iree/issues/????? (subspan)":
+        check_subspan,
     "https://github.com/openxla/iree/issues/14098 (unsigned topk)":
         check_unsigned_topk,
+    "https://github.com/openxla/iree/issues/????? (bounds indexing)":
+        check_bounds_indexing,
+    "https://github.com/openxla/iree/issues/????? (nan correctness)":
+        check_nan_correctness,
+    "https://github.com/openxla/iree/issues/????? (pointer mismatch)":
+        check_pointer_mismatch,
+    "https://github.com/openxla/iree/issues/10841 (select and scatter)":
+        check_select_and_scatter,
+    "https://github.com/openxla/iree/issues/????? (degenerate scatter)":
+        check_degenerate_scatter,
+    "https://github.com/openxla/iree/issues/????? (cost analysis)":
+        check_cost_analysis,
+    "https://github.com/openxla/iree/issues/????? (invalid option)":
+        check_invalid_option,
+    "https://github.com/openxla/iree/issues/????? (inf mismatch)":
+        check_inf_mismatch,
+    "https://github.com/openxla/iree/issues/????? (shape assertion)":
+        check_shape_assertion,
+    "https://github.com/openxla/iree/issues/????? (vector contract)":
+        check_vector_contract,
+    "https://github.com/openxla/iree/issues/????? (subbyte indexed)":
+        check_subbyte_read,
+    "https://github.com/openxla/iree/issues/????? (buffer usage)":
+        check_buffer_usage,
+    "https://github.com/openxla/iree/issues/????? (subbyte singleton)":
+        check_subbyte_singleton,
+    "https://github.com/openxla/iree/issues/????? (max arg)":
+        check_max_arg,
+    "https://github.com/openxla/iree/issues/????? (double support)":
+        check_double_support,
+    "https://github.com/openxla/iree/issues/????? (zero extent)":
+        check_stablehlo_degenerate,
+    "https://github.com/openxla/iree/issues/????? (all reduce)":
+        check_stablehlo_allreduce,
+    "https://github.com/openxla/iree/issues/????? (stablehlo dot_general)":
+        check_dot_shape,
     "(unknown backend)":
         check_unknown_backend,
     "(semaphore)":
         check_semaphore_overload,
+    "Aborted (possible timeout)":
+        check_aborted,
     "Runtime Crash":
         check_runtime_crash,
     "Compilation Failure":
@@ -317,8 +435,7 @@ def triage_test(test):
   mlirbc_name = f'{mlirbc_count - 1}-program.mlirbc'
   vmfb_name = f'{mlirbc_count - 1}-program.vmfb'
 
-  runtime_crash = "CRASH_MARKER" in files and (mlirbc_count == 0 or
-                                               vmfb_name in files)
+  runtime_crash = "CRASH_MARKER" in files
 
   mlirbc = ""
   if mlirbc_count > 0:
@@ -370,6 +487,3 @@ failing = filter_to_failures(tests)
 mapping = filter_error_mapping(failing)
 summary = generate_summary(mapping)
 print_summary(summary)
-
-for test in summary["Untriaged"]:
-  print(test)
